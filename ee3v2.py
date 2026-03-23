@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-=============================================================================
- KÜRESEL ISINMA → FİTOPLANKTON → BESİN ZİNCİRİ SİMÜLASYONU
- Streamlit Web Arayüzü — Python 3.10+ Uyumlu
-=============================================================================
-"""
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -24,10 +16,6 @@ plt.rcParams['axes.unicode_minus'] = False
 plt.rcParams['figure.dpi'] = 120
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  SAYFA AYARLARI
-# ══════════════════════════════════════════════════════════════════════
-
 st.set_page_config(
     page_title="Küresel Isınma & Fitoplankton Simülasyonu",
     page_icon="🌊",
@@ -36,9 +24,6 @@ st.set_page_config(
 )
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  SABİT TROFİK SEVİYE İSİMLERİ  (tek yerde tanımla, her yerde kullan)
-# ══════════════════════════════════════════════════════════════════════
 
 TROFIK_ISIMLER = [
     'Fitoplankton', 'Zooplankton', 'Küçük Balıklar',
@@ -47,10 +32,6 @@ TROFIK_ISIMLER = [
 TROFIK_RENKLER = ['#27ae60', '#3498db', '#9b59b6', '#e67e22', '#c0392b']
 TROFIK_IKONLAR = ['🦠', '🦐', '🐟', '🐠', '🦈']
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 1 — NASA VERİ TOPLAYICI
-# ══════════════════════════════════════════════════════════════════════
 
 class NASAVeriToplayici:
     """NASA GISTEMP, NOAA CO₂ ve MODIS Klorofil-a verilerini toplar."""
@@ -65,7 +46,6 @@ class NASAVeriToplayici:
             "co2_annmean_mlo.csv"
         )
 
-    # ── yardımcı ──
     @staticmethod
     def _guvenli_float(deger):
         try:
@@ -73,7 +53,6 @@ class NASAVeriToplayici:
         except (ValueError, TypeError):
             return np.nan
 
-    # ── GISTEMP ──
     def gistemp_indir(self, durum):
         durum.update(label="NASA GISTEMP v4 indiriliyor…", state="running")
         try:
@@ -155,7 +134,6 @@ class NASAVeriToplayici:
             'sicaklik_anomalisi': np.round(anomali, 2).astype(float)
         })
 
-    # ── CO₂ ──
     def co2_indir(self, durum):
         durum.update(label="NOAA CO₂ verileri indiriliyor…", state="running")
         try:
@@ -201,7 +179,6 @@ class NASAVeriToplayici:
             'co2': np.round(co2, 1).astype(float)
         })
 
-    # ── KLOROFİL-a ──
     def klorofil_verisi_al(self, durum):
         durum.update(
             label="MODIS-Aqua Klorofil-a hazırlanıyor…", state="running"
@@ -226,10 +203,6 @@ class NASAVeriToplayici:
         return df
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 2 — FİTOPLANKTON MODELİ
-# ══════════════════════════════════════════════════════════════════════
-
 class FitoplanktonModeli:
     """
     Eppley büyüme eğrisi + Monod besin kısıtlaması
@@ -237,12 +210,12 @@ class FitoplanktonModeli:
     """
 
     def __init__(self, T_opt=20.0, strat_hass=0.15, K_N=0.5):
-        self.mu_ref = 0.59            # referans büyüme hızı (gün⁻¹)
-        self.T_opt = float(T_opt)     # optimal sıcaklık (°C)
-        self.T_maks = 35.0            # üst sınır (°C)
-        self.T_min = -2.0             # alt sınır (°C)
-        self.K_N = float(K_N)         # yarı doygunluk sabiti
-        self.N0 = 5.0                 # temel besin konsantrasyonu
+        self.mu_ref = 0.59
+        self.T_opt = float(T_opt)
+        self.T_maks = 35.0
+        self.T_min = -2.0
+        self.K_N = float(K_N)
+        self.N0 = 5.0
         self.strat_hassasiyet = float(strat_hass)
 
     def eppley_buyume_hizi(self, T):
@@ -297,12 +270,10 @@ class FitoplanktonModeli:
         buyume_hizlari = np.array(buyume_hizlari, dtype=float)
         besin_faktorleri = np.array(besin_faktorleri, dtype=float)
 
-        # Kümülatif indeks oluştur
         erken_ort = float(np.mean(net_buyumeler[:min(30, len(net_buyumeler))]))
         kumulatif = np.cumsum(net_buyumeler - erken_ort)
         pop_relatif = 1.0 + 0.01 * kumulatif
 
-        # 1950 yılını referans al (= 1.0)
         yillar_arr = np.array(yillar, dtype=float)
         idx_1950 = int(np.argmin(np.abs(yillar_arr - 1950.0)))
         if abs(pop_relatif[idx_1950]) > 1e-10:
@@ -310,10 +281,6 @@ class FitoplanktonModeli:
 
         return pop_relatif, buyume_hizlari, besin_faktorleri
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 3 — DENİZ BESİN ZİNCİRİ  (Lotka-Volterra, 5 trofik seviye)
-# ══════════════════════════════════════════════════════════════════════
 
 class DenizBesinZinciri:
     """
@@ -341,11 +308,11 @@ class DenizBesinZinciri:
 
     def besin_zinciri_ode(self, y, t, fito_zorlama, sicaklik_stresi):
         """5-bileşenli ODE sistemi."""
-        P = max(float(y[0]), 0.001)   # Fitoplankton
-        Z = max(float(y[1]), 0.001)   # Zooplankton
-        K = max(float(y[2]), 0.001)   # Küçük balıklar
-        B = max(float(y[3]), 0.001)   # Büyük balıklar
-        U = max(float(y[4]), 0.001)   # Üst yırtıcılar
+        P = max(float(y[0]), 0.001)
+        Z = max(float(y[1]), 0.001)
+        K = max(float(y[2]), 0.001)
+        B = max(float(y[3]), 0.001)
+        U = max(float(y[4]), 0.001)
 
         fz = float(fito_zorlama)
         ss = float(sicaklik_stresi)
@@ -404,20 +371,14 @@ class DenizBesinZinciri:
             except Exception:
                 populasyonlar[i] = populasyonlar[i - 1].copy()
 
-            # Fitoplankton katmanını doğrudan modelden zorla
             populasyonlar[i, 0] = max(float(fito_populasyonu[i]), 0.01)
 
-        # Başlangıca göre normalize et
         for j in range(5):
             if populasyonlar[0, j] > 0:
                 populasyonlar[:, j] /= populasyonlar[0, j]
 
         return populasyonlar
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 4 — İKLİM SENARYOLARI  (IPCC AR6 — SSP)
-# ══════════════════════════════════════════════════════════════════════
 
 class IklimSenaryolari:
     """IPCC AR6 SSP senaryolarına dayalı projeksiyon motoru."""
@@ -503,7 +464,7 @@ class IklimSenaryolari:
     def fitoplankton_projeksiyonu(self, projeksiyonlar, fito_modeli):
         """Her senaryo için fitoplankton popülasyonu hesaplar."""
         fito_projeksiyonlar = {}
-        temel_dyo = 17.0  # temel deniz yüzey sıcaklığı
+        temel_dyo = 17.0
 
         for isim, proj in projeksiyonlar.items():
             sicakliklar = proj['sicakliklar']
@@ -521,10 +482,6 @@ class IklimSenaryolari:
 
         return fito_projeksiyonlar
 
-
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 5 — GRAFİK FONKSİYONLARI
-# ══════════════════════════════════════════════════════════════════════
 
 def grafik_sicaklik(yillar, anomali):
     """Bar + polinom trend grafiği — sıcaklık anomalisi."""
@@ -691,7 +648,6 @@ def grafik_ekolojik_piramit(zincir_pop, yillar):
     zincir_pop = np.array(zincir_pop, dtype=float)
     yillar = np.array(yillar, dtype=float)
 
-    # ── SOL: PİRAMİT ──
     ax = eksenler[0]
     ax.set_xlim(-3.5, 3.5)
     ax.set_ylim(-0.5, 5.5)
@@ -700,7 +656,6 @@ def grafik_ekolojik_piramit(zincir_pop, yillar):
     ax.set_title('Ekolojik Piramit (Başlangıç ↔ Güncel)',
                  fontsize=13, fontweight='bold')
 
-    # alttan üste: i=0 en geniş (fitoplankton), i=4 en dar (üst yırtıcı)
     genislikler = [2.5, 2.0, 1.5, 1.0, 0.5]
 
     baslangic = zincir_pop[0]
@@ -710,13 +665,11 @@ def grafik_ekolojik_piramit(zincir_pop, yillar):
         y = float(i)
         w = genislikler[i]
 
-        # Başlangıç (sol, soluk)
         ax.add_patch(plt.Rectangle(
             (-w, y - 0.15), w, 0.3,
             color=TROFIK_RENKLER[i], alpha=0.4
         ))
 
-        # Güncel (sağ, koyu)
         sp = float(baslangic[i])
         ep = float(guncel[i])
         oran = ep / sp if sp > 0.001 else 1.0
@@ -741,8 +694,7 @@ def grafik_ekolojik_piramit(zincir_pop, yillar):
             color='gray')
     ax.text(1.25, 5.2, 'Güncel', ha='center', fontsize=10,
             fontweight='bold')
-
-    # ── SAĞ: KÜMÜLATİF DEĞİŞİM ──
+ 
     ax2 = eksenler[1]
     for j in range(5):
         taban = float(zincir_pop[0, j])
@@ -844,7 +796,6 @@ def grafik_mekanizma():
         ax.text(x + w / 2, y + h / 2, metin,
                 ha='center', va='center', fontsize=9, fontweight='bold')
 
-    # Ok yönleri: FROM (x1,y1) TO (x2,y2)
     oklar = [
         (4,    8.6,  6,    8.6),    # CO₂ → Sıcaklık
         (9.5,  8.6,  12,   8.6),    # Sıcaklık → Okyanus
@@ -913,7 +864,6 @@ def grafik_senaryo_zincirleri(projeksiyonlar, besin_zinciri_modeli):
         ax.grid(True, alpha=0.3)
         ax.set_ylim(0, 2.0)
 
-    # sağ-alt panel: fitoplankton karşılaştırma
     ax4 = eksenler[1, 1]
     for isim, proj in projeksiyonlar.items():
         prm = proj['parametreler']
@@ -935,13 +885,8 @@ def grafik_senaryo_zincirleri(projeksiyonlar, besin_zinciri_modeli):
     return fig
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  BÖLÜM 6 — STREAMLIT ANA UYGULAMA
-# ══════════════════════════════════════════════════════════════════════
-
 def ana_uygulama():
 
-    # ── BAŞLIK ──
     st.markdown("""
     # 🌊 Küresel Isınmanın Fitoplanktonlara Etkisi
     ## ve Besin Zinciri Kaskad Simülasyonu
@@ -951,8 +896,7 @@ def ana_uygulama():
 
     ---
     """)
-
-    # ── YAN PANEL ──
+ 
     st.sidebar.header("⚙️ Simülasyon Parametreleri")
 
     st.sidebar.subheader("Fitoplankton Modeli")
@@ -989,7 +933,6 @@ def ana_uygulama():
         "🚀 Simülasyonu Başlat", type="primary", use_container_width=True
     )
 
-    # ── BAŞLANGIÇ EKRANI ──
     if not btn_baslat and 'sonuclar' not in st.session_state:
         st.info(
             "👈 Sol paneldeki parametreleri ayarlayın ve "
@@ -1022,11 +965,9 @@ def ana_uygulama():
             """)
         return
 
-    # ── SİMÜLASYON ──
     if btn_baslat or 'sonuclar' in st.session_state:
 
         if btn_baslat:
-            # ▸ ADIM 1: VERİ TOPLAMA
             st.header("📡 Adım 1 — Veri Toplama")
             toplayici = NASAVeriToplayici()
 
@@ -1045,7 +986,6 @@ def ana_uygulama():
 
             st.success("✅ Tüm veriler başarıyla toplandı!")
 
-            # ▸ ADIM 2: VERİ HAZIRLAMA
             st.header("🔧 Adım 2 — Veri Hazırlama")
             maske = (
                 (gistemp_df['yil'] >= baslangic_yili)
@@ -1074,7 +1014,6 @@ def ana_uygulama():
                 )
             )
 
-            # ▸ ADIM 3: FİTOPLANKTON MODELİ
             st.header("🦠 Adım 3 — Fitoplankton Modeli")
             fito_modeli = FitoplanktonModeli(
                 T_opt=T_opt, strat_hass=strat_hass, K_N=K_N
@@ -1107,7 +1046,6 @@ def ana_uygulama():
                 delta="{:+.1f} %".format(fito_degisim)
             )
 
-            # ▸ ADIM 4: BESİN ZİNCİRİ
             st.header("🔗 Adım 4 — Besin Zinciri Simülasyonu")
             besin_zinciri = DenizBesinZinciri()
 
@@ -1131,7 +1069,6 @@ def ana_uygulama():
                     "{:+.1f} %".format(dgs)
                 )
 
-            # ▸ ADIM 5: PROJEKSİYONLAR
             st.header("🔮 Adım 5 — IPCC Projeksiyonları")
             senaryolar = IklimSenaryolari()
 
@@ -1155,7 +1092,6 @@ def ana_uygulama():
                     "{:+.1f} %".format(dgs)
                 )
 
-            # ▸ SONUÇLARI KAYDET
             st.session_state['sonuclar'] = {
                 'yillar': yillar,
                 'sicaklik_anomalisi': sicaklik_anomalisi,
@@ -1169,9 +1105,6 @@ def ana_uygulama():
                 'besin_zinciri': besin_zinciri,
             }
 
-        # ══════════════════════════════════════════════════════════
-        #  GRAFİKLER
-        # ══════════════════════════════════════════════════════════
         sn = st.session_state['sonuclar']
 
         st.markdown("---")
@@ -1188,7 +1121,6 @@ def ana_uygulama():
             "🔄 Mekanizma"
         ])
 
-        # ── Sekme 1: Sıcaklık ──
         with t1:
             st.subheader("Küresel Sıcaklık Anomalisi (NASA GISTEMP v4)")
             fig = grafik_sicaklik(sn['yillar'], sn['sicaklik_anomalisi'])
@@ -1204,7 +1136,6 @@ def ana_uygulama():
                     gosterim_df, use_container_width=True, height=300
                 )
 
-        # ── Sekme 2: CO₂ ──
         with t2:
             st.subheader("Atmosferik CO₂ Konsantrasyonu")
             fig = grafik_co2(sn['co2_df'])
@@ -1218,7 +1149,6 @@ def ana_uygulama():
                     co2_gosterim, use_container_width=True, height=300
                 )
 
-        # ── Sekme 3: Fitoplankton ──
         with t3:
             st.subheader("Fitoplankton Popülasyon İndeksi")
             fig = grafik_fitoplankton(sn['yillar'], sn['fito_pop'])
@@ -1232,7 +1162,6 @@ def ana_uygulama():
             > **net etkiyi olumsuz** kılmaktadır.
             """)
 
-        # ── Sekme 4: Stratifikasyon ──
         with t4:
             st.subheader("Stratifikasyon Etkisi: Besin ↔ Büyüme")
             fig = grafik_stratifikasyon(
@@ -1250,7 +1179,6 @@ def ana_uygulama():
             > (sıcaklıkla artar ama besin eksikliği sınırlar)
             """)
 
-        # ── Sekme 5: Besin Zinciri ──
         with t5:
             st.subheader(
                 "Besin Zinciri Kaskad Etkisi — 5 Trofik Seviye"
@@ -1284,8 +1212,7 @@ def ana_uygulama():
                 st.dataframe(
                     pd.DataFrame(satirlar), use_container_width=True
                 )
-
-        # ── Sekme 6: Projeksiyonlar ──
+             
         with t6:
             st.subheader(
                 "IPCC Senaryolarına Göre Fitoplankton Projeksiyonları"
@@ -1312,7 +1239,6 @@ def ana_uygulama():
             | **SSP5-8.5** | +4,4 °C | Fosil yakıta bağımlılık sürer |
             """)
 
-        # ── Sekme 7: Ekolojik Piramit ──
         with t7:
             st.subheader("Ekolojik Piramit ve Kümülatif Değişim")
             fig = grafik_ekolojik_piramit(
@@ -1321,7 +1247,6 @@ def ana_uygulama():
             st.pyplot(fig)
             plt.close(fig)
 
-        # ── Sekme 8: Mekanizma ──
         with t8:
             st.subheader("Etki Mekanizması Diyagramı")
             fig = grafik_mekanizma()
@@ -1355,9 +1280,6 @@ def ana_uygulama():
             ```
             """)
 
-        # ══════════════════════════════════════════════════════════
-        #  ÖZET RAPOR
-        # ══════════════════════════════════════════════════════════
         st.markdown("---")
         st.header("📋 Özet Rapor")
 
@@ -1415,9 +1337,6 @@ def ana_uygulama():
                https://oceancolor.gsfc.nasa.gov
             """)
 
-        # ══════════════════════════════════════════════════════════
-        #  CSV İNDİR
-        # ══════════════════════════════════════════════════════════
         st.markdown("---")
         st.header("⬇️ Veri İndir")
 
@@ -1470,9 +1389,6 @@ def ana_uygulama():
             )
 
 
-# ══════════════════════════════════════════════════════════════════════
-#  ÇALIŞTIR
-# ══════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     ana_uygulama()
