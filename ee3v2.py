@@ -33,7 +33,6 @@ TROFIK_ISIMLER = [
 TROFIK_RENKLER = ['#27ae60', '#3498db', '#9b59b6', '#e67e22', '#c0392b']
 TROFIK_IKONLAR = ['🦠', '🦐', '🐟', '🐠', '🦈']
 
-
 class NASAVeriToplayici:
     """
     NASA GISTEMP, NOAA CO₂ ve MODIS Klorofil-a verilerini toplar.
@@ -43,6 +42,7 @@ class NASAVeriToplayici:
 
     def __init__(self):
         self.gistemp_urls = [
+
             (
                 "https://raw.githubusercontent.com/datasets/"
                 "global-temp/master/data/annual.csv",
@@ -180,7 +180,7 @@ class NASAVeriToplayici:
             try:
                 durum.update(
                     label="Deneniyor: {}…".format(
-                        url.split('/')[2] 
+                        url.split('/')[2]
                     ),
                     state="running"
                 )
@@ -280,7 +280,7 @@ class NASAVeriToplayici:
         for y in gercek_veri:
             idx = y - 1880
             if 0 <= idx < len(gurultu):
-                gurultu[idx] = 0
+                gurultu[idx] = 0  
 
         anomali = anomali + gurultu
 
@@ -418,7 +418,6 @@ class NASAVeriToplayici:
             'co2': np.round(co2, 1).astype(float)
         })
 
-
     def klorofil_verisi_al(self, durum):
         durum.update(
             label="MODIS-Aqua Klorofil-a hazırlanıyor…", state="running"
@@ -441,6 +440,7 @@ class NASAVeriToplayici:
             label="✅ Klorofil-a: {} yıl".format(len(df)), state="complete"
         )
         return df
+
 
 
 class FitoplanktonModeli:
